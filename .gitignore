@@ -1,0 +1,100 @@
+# Python virtual environment
+venv/
+env/
+ENV/
+.venv/
+
+# Python cache
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# Distribution / packaging
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# PyInstaller
+*.manifest
+*.spec
+
+# Unit test / coverage reports
+htmlcov/
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# Dataset folders
+data/
+bdd100k/
+dataset/
+datasets/
+*.zip
+*.tar
+*.tar.gz
+
+# Model checkpoints and weights
+*.pth
+*.pth.tar
+*.pt
+*.ckpt
+test_/
+trained_models/
+checkpoints/
+weights/
+results/
+output/
+
+# Logs
+*.log
+logs/
+runs/
+tensorboard/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Images and videos (if you have test outputs)
+*.jpg
+*.jpeg
+*.png
+*.gif
+*.mp4
+*.avi
+!image/arch.png
+
+# Temporary files
+tmp/
+temp/
+*.tmp
