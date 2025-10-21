@@ -20,7 +20,8 @@ def augment_hsv(img, hgain=0.015, sgain=0.7, vgain=0.4):
 
     img_hsv = cv2.merge((cv2.LUT(hue, lut_hue), cv2.LUT(sat, lut_sat), cv2.LUT(val, lut_val))).astype(dtype)
     cv2.cvtColor(img_hsv, cv2.COLOR_HSV2BGR, dst=img)  # no return needed
-def random_perspective(combination,  degrees=10, translate=.1, scale=.1, shear=10, perspective=0.0, border=(0, 0)):
+
+def random_perspective(combination, degrees=10, translate=.1, scale=.1, shear=10, perspective=0.0, border=(0, 0)):
     """combination of img transform"""
     # torchvision.transforms.RandomAffine(degrees=(-10, 10), translate=(.1, .1), scale=(.9, 1.1), shear=(-10, 10))
     # targets = [cls, xyxy]
@@ -68,86 +69,102 @@ def random_perspective(combination,  degrees=10, translate=.1, scale=.1, shear=1
             gray = cv2.warpAffine(gray, M[:2], dsize=(width, height), borderValue=0)
             line = cv2.warpAffine(line, M[:2], dsize=(width, height), borderValue=0)
 
-
-
     combination = (img, gray, line)
     return combination
+
 class MyDataset(torch.utils.data.Dataset):
     '''
-    Class to load the dataset
+    Loads BDD100K with structure:
+      <root>/
+        images/{train,val}
+        segments/{train,val}
+        lane/{train,val}
     '''
-    def __init__(self, transform=None,valid=False):
-        '''
-        :param imList: image list (Note that these lists have been processed and pickled using the loadData.py)
-        :param labelList: label list (Note that these lists have been processed and pickled using the loadData.py)
-        :param transform: Type of transformation. SEe Transforms.py for supported transformations
-        '''
-
+    def __init__(self, transform=None, valid=False, data_root=None):
         self.transform = transform
         self.Tensor = transforms.ToTensor()
-        self.valid=valid
-        if valid:
-            self.root='/home/ceec/huycq/data/bdd100k/images/val'
-            self.names=os.listdir(self.root)
-        else:
-            self.root='/home/ceec/huycq/data/bdd100k/images/train'
-            self.names=os.listdir(self.root)
+        self.valid = valid
+
+        # Resolve dataset root: CLI arg -> ENV -> default
+        base = data_root or os.environ.get('BDD100K_ROOT', '/data/bdd100k')
+        split = 'val' if valid else 'train'
+
+        self.img_root = os.path.join(base, 'images', split)
+        self.seg_root = os.path.join(base, 'segments', split)
+        self.lane_root = os.path.join(base, 'lane', split)
+
+        # Validate directories
+        for d in (self.img_root, self.seg_root, self.lane_root):
+            if not os.path.isdir(d):
+                raise FileNotFoundError(f"Required directory not found: {d}")
+
+        # Collect image names
+        self.names = sorted([n for n in os.listdir(self.img_root) if n.lower().endswith('.jpg')])
+
+        if len(self.names) == 0:
+            raise FileNotFoundError(f"No .jpg images found in {self.img_root}")
 
     def __len__(self):
         return len(self.names)
 
     def __getitem__(self, idx):
-        '''
+        W_, H_ = 640, 360
+        name = self.names[idx]
 
-        :param idx: Index of the image file
-        :return: returns the image and corresponding label file.
-        '''
-        W_=640
-        H_=360
-        image_name=os.path.join(self.root,self.names[idx])
-        
-        image = cv2.imread(image_name)
-        label1 = cv2.imread(image_name.replace("images","segments").replace("jpg","png"), 0)
-        label2 = cv2.imread(image_name.replace("images","lane").replace("jpg","png"), 0)
+        image_path = os.path.join(self.img_root, name)
+        seg_path = os.path.join(self.seg_root, name.replace('.jpg', '.png'))
+        lane_path = os.path.join(self.lane_root, name.replace('.jpg', '.png'))
+
+        image = cv2.imread(image_path)
+        label1 = cv2.imread(seg_path, 0)
+        label2 = cv2.imread(lane_path, 0)
+
+        if image is None or label1 is None or label2 is None:
+            missing = []
+            if image is None: missing.append(image_path)
+            if label1 is None: missing.append(seg_path)
+            if label2 is None: missing.append(lane_path)
+            raise FileNotFoundError(f"Missing or unreadable file(s): {missing}")
+
+        # Augmentations (train only)
         if not self.valid:
-            if random.random()<0.5:
-                combination = (image, label1, label2)
-                (image, label1, label2)= random_perspective(
-                    combination=combination,
-                    degrees=10,
-                    translate=0.1,
-                    scale=0.25,
-                    shear=0.0
+            if random.random() < 0.5:
+                (image, label1, label2) = random_perspective(
+                    combination=(image, label1, label2),
+                    degrees=10, translate=0.1, scale=0.25, shear=0.0
                 )
-            if random.random()<0.5:
+            if random.random() < 0.5:
                 augment_hsv(image)
             if random.random() < 0.5:
-                image = np.fliplr(image)
-                label1 = np.fliplr(label1)
-                label2 = np.fliplr(label2)
-            
+                image = np.fliplr(image).copy()
+                label1 = np.fliplr(label1).copy()
+                label2 = np.fliplr(label2).copy()
+
+        # Resize
         label1 = cv2.resize(label1, (W_, H_))
         label2 = cv2.resize(label2, (W_, H_))
         image = cv2.resize(image, (W_, H_))
 
-        _,seg_b1 = cv2.threshold(label1,1,255,cv2.THRESH_BINARY_INV)
-        _,seg_b2 = cv2.threshold(label2,1,255,cv2.THRESH_BINARY_INV)
-        _,seg1 = cv2.threshold(label1,1,255,cv2.THRESH_BINARY)
-        _,seg2 = cv2.threshold(label2,1,255,cv2.THRESH_BINARY)
+        # Binary masks for drivable area and lane
+        _, seg_b1 = cv2.threshold(label1, 1, 255, cv2.THRESH_BINARY_INV)
+        _, seg_b2 = cv2.threshold(label2, 1, 255, cv2.THRESH_BINARY_INV)
+        _, seg1 = cv2.threshold(label1, 1, 255, cv2.THRESH_BINARY)
+        _, seg2 = cv2.threshold(label2, 1, 255, cv2.THRESH_BINARY)
 
         seg1 = self.Tensor(seg1)
         seg2 = self.Tensor(seg2)
         seg_b1 = self.Tensor(seg_b1)
         seg_b2 = self.Tensor(seg_b2)
-        seg_da = torch.stack((seg_b1[0], seg1[0]),0)
-        seg_ll = torch.stack((seg_b2[0], seg2[0]),0)
+
+        seg_da = torch.stack((seg_b1[0], seg1[0]), 0)
+        seg_ll = torch.stack((seg_b2[0], seg2[0]), 0)
+
+        # BGR -> RGB, HWC -> CHW
         image = image[:, :, ::-1].transpose(2, 0, 1)
         image = np.ascontiguousarray(image)
 
+        return image_path, torch.from_numpy(image), (seg_da, seg_ll)
 
-       
-        return image_name,torch.from_numpy(image),(seg_da,seg_ll)
-    
 
 
 
