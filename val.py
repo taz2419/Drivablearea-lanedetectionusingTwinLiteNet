@@ -1,7 +1,8 @@
 import torch
 from model import TwinLite as net
 from argparse import ArgumentParser
-from utils import val, netParams, custom_collate_fn
+from utils import val, netParams
+import utils
 from const import *
 import DataSet as myDataLoader  
 from collections import OrderedDict
@@ -53,14 +54,13 @@ def validation(args):
     # Prepare data loader
     print("Loading validation dataset...")
     valLoader = torch.utils.data.DataLoader(
-    myDataLoader.MyDataset(valid=True),
-    batch_size=args.batch_size,
-    shuffle=False,
-    num_workers=args.num_workers,
-    pin_memory=True if torch.cuda.is_available() else False,
-    drop_last=False,
-    collate_fn=utils.custom_collate_fn  # ADD THIS LINE
-)
+        myDataLoader.MyDataset(valid=True),
+        batch_size=args.batch_size,
+        shuffle=False,
+        num_workers=args.num_workers,
+        pin_memory=True if torch.cuda.is_available() else False,
+        drop_last=False
+    )
     
     print(f"Total validation samples: {len(valLoader.dataset)}")
     
