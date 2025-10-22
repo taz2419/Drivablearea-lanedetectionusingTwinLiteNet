@@ -152,6 +152,10 @@ def val(valLoader, model, device):
             # Process predictions
             da_predict = torch.argmax(da_predict, dim=1)
             ll_predict = torch.argmax(ll_predict, dim=1)
+
+            # Add to metrics - convert to int64
+            da_segment_results.addBatch(da_predict.cpu().numpy().astype(np.int64), da_target.cpu().numpy().astype(np.int64))
+            ll_segment_results.addBatch(ll_predict.cpu().numpy().astype(np.int64), ll_target.cpu().numpy().astype(np.int64))
             
             # Get targets (assuming target has shape [batch, 2, H, W])
             da_target = target[:, 0, :, :]
