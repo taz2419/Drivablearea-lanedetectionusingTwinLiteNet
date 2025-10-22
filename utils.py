@@ -146,6 +146,10 @@ def val(valLoader, model, device):
             input = input.to(device).float() / 255.0
             target = target.to(device)
             
+            # Get targets FIRST (assuming target has shape [batch, 2, H, W])
+            da_target = target[:, 0, :, :]
+            ll_target = target[:, 1, :, :]
+            
             # Forward pass
             da_predict, ll_predict = model(input)
             
@@ -156,14 +160,6 @@ def val(valLoader, model, device):
             # Add to metrics - convert to int64
             da_segment_results.addBatch(da_predict.cpu().numpy().astype(np.int64), da_target.cpu().numpy().astype(np.int64))
             ll_segment_results.addBatch(ll_predict.cpu().numpy().astype(np.int64), ll_target.cpu().numpy().astype(np.int64))
-            
-            # Get targets (assuming target has shape [batch, 2, H, W])
-            da_target = target[:, 0, :, :]
-            ll_target = target[:, 1, :, :]
-            
-            # Update metrics
-            da_segment_results.addBatch(da_predict.cpu().numpy(), da_target.cpu().numpy())
-            ll_segment_results.addBatch(ll_predict.cpu().numpy(), ll_target.cpu().numpy())
             
             # Clear cache periodically
             if i % 50 == 0:
