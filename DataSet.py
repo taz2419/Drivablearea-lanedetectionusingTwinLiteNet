@@ -71,8 +71,17 @@ class MyDataset(torch.utils.data.Dataset):
         self.valid = valid
 
         # Resolve dataset root: CLI arg > ENV > default
-        base = data_root or os.environ.get('BDD100K_ROOT', '/data/bdd100k')
+        base = data_root or os.environ.get('BDD100K_ROOT', '/kaggle/input/bdd100k_validation_only')
         split = 'val' if valid else 'train'
+
+        # Check if only 'val' exists (validation-only dataset)
+        val_path = os.path.join(base, 'images', 'val')
+        train_path = os.path.join(base, 'images', 'train')
+        
+        if not valid and not os.path.isdir(train_path) and os.path.isdir(val_path):
+            # Training mode but only val exists - use val for both
+            split = 'val'
+            print(f"Warning: 'train' split not found, using 'val' split for training")
 
         self.img_root = os.path.join(base, 'images', split)
         self.seg_root = os.path.join(base, 'segments', split)
@@ -84,7 +93,9 @@ class MyDataset(torch.utils.data.Dataset):
                 raise FileNotFoundError(
                     f"Required directory not found: {d}\n"
                     f"Expected structure: {base}/{{images,segments,lane}}/{split}/"
+                    f"Available: {os.listdir(base) if os.path.isdir(base) else 'base not found'}"
                 )
+                
 
         # Collect image filenames
         self.names = sorted([n for n in os.listdir(self.img_root) if n.lower().endswith('.jpg')])
