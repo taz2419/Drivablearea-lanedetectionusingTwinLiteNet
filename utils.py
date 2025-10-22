@@ -106,64 +106,38 @@ def train16fp(args, train_loader, model, criterion, optimizer, epoch,scaler):
                                      (f'{epoch}/{300 - 1}', tversky_loss, focal_loss, loss.item()))
 
 
+import torch
+
 @torch.no_grad()
 def val(val_loader, model, device=None):
-    import torch
-    from tqdm import tqdm
-
-    # Get current device from arg or model
     device = device or next(model.parameters()).device
     model.eval()
-
     DA = SegmentationMetric(2)
     LL = SegmentationMetric(2)
-
-    da_acc_seg = AverageMeter()
-    da_IoU_seg = AverageMeter()
-    da_mIoU_seg = AverageMeter()
-
-    ll_acc_seg = AverageMeter()
-    ll_IoU_seg = AverageMeter()
-    ll_mIoU_seg = AverageMeter()
+    da_acc_seg = AverageMeter(); da_IoU_seg = AverageMeter(); da_mIoU_seg = AverageMeter()
+    ll_acc_seg = AverageMeter(); ll_IoU_seg = AverageMeter(); ll_mIoU_seg = AverageMeter()
 
     pbar = tqdm(enumerate(val_loader), total=len(val_loader))
     for i, (_, input, target) in pbar:
-        # Move to device (CPU/GPU)
         input = input.to(device, non_blocking=(device.type == 'cuda')).float() / 255.0
         seg_da, seg_ll = target
         seg_da = seg_da.to(device, non_blocking=(device.type == 'cuda')).float()
         seg_ll = seg_ll.to(device, non_blocking=(device.type == 'cuda')).float()
 
-        # Forward
         out_da, out_ll = model(input)
+        _, da_predict = torch.max(out_da, 1); _, da_gt = torch.max(seg_da, 1)
+        DA.reset(); DA.addBatch(da_predict.cpu(), da_gt.cpu())
+        da_acc_seg.update(DA.pixelAccuracy(), input.size(0))
+        da_IoU_seg.update(DA.IntersectionOverUnion(), input.size(0))
+        da_mIoU_seg.update(DA.meanIntersectionOverUnion(), input.size(0))
 
-        # Drivable area metrics
-        _, da_predict = torch.max(out_da, 1)
-        _, da_gt = torch.max(seg_da, 1)
-        DA.reset()
-        DA.addBatch(da_predict.cpu(), da_gt.cpu())
-        da_acc = DA.pixelAccuracy()
-        da_IoU = DA.IntersectionOverUnion()
-        da_mIoU = DA.meanIntersectionOverUnion()
-        da_acc_seg.update(da_acc, input.size(0))
-        da_IoU_seg.update(da_IoU, input.size(0))
-        da_mIoU_seg.update(da_mIoU, input.size(0))
+        _, ll_predict = torch.max(out_ll, 1); _, ll_gt = torch.max(seg_ll, 1)
+        LL.reset(); LL.addBatch(ll_predict.cpu(), ll_gt.cpu())
+        ll_acc_seg.update(LL.lineAccuracy(), input.size(0))
+        ll_IoU_seg.update(LL.IntersectionOverUnion(), input.size(0))
+        ll_mIoU_seg.update(LL.meanIntersectionOverUnion(), input.size(0))
 
-        # Lane line metrics
-        _, ll_predict = torch.max(out_ll, 1)
-        _, ll_gt = torch.max(seg_ll, 1)
-        LL.reset()
-        LL.addBatch(ll_predict.cpu(), ll_gt.cpu())
-        ll_acc = LL.lineAccuracy()
-        ll_IoU = LL.IntersectionOverUnion()
-        ll_mIoU = LL.meanIntersectionOverUnion()
-        ll_acc_seg.update(ll_acc, input.size(0))
-        ll_IoU_seg.update(ll_IoU, input.size(0))
-        ll_mIoU_seg.update(ll_mIoU, input.size(0))
-
-    da_segment_result = (da_acc_seg.avg, da_IoU_seg.avg, da_mIoU_seg.avg)
-    ll_segment_result = (ll_acc_seg.avg, ll_IoU_seg.avg, ll_mIoU_seg.avg)
-    return da_segment_result, ll_segment_result
+    return (da_acc_seg.avg, da_IoU_seg.avg, da_mIoU_seg.avg), (ll_acc_seg.avg, ll_IoU_seg.avg, ll_mIoU_seg.avg)
 
 
 
