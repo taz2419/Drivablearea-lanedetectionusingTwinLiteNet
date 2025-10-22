@@ -74,11 +74,11 @@ def validation(args):
     print("="*50)
     print("\nDrivable Area Segmentation:")
     print(f"  IoU: {da_segment_results.IntersectionOverUnion():.4f}")
-    print(f"  Accuracy: {da_segment_results.Accuracy():.4f}")
-    
+    print(f"  Pixel Accuracy: {da_segment_results.pixelAccuracy():.4f}")
+
     print("\nLane Line Segmentation:")
     print(f"  IoU: {ll_segment_results.IntersectionOverUnion():.4f}")
-    print(f"  Accuracy: {ll_segment_results.Accuracy():.4f}")
+    print(f"  Pixel Accuracy: {ll_segment_results.pixelAccuracy():.4f}")
     print("="*50)
 
 

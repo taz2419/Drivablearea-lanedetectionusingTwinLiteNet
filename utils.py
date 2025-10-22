@@ -146,20 +146,23 @@ def val(valLoader, model, device):
             input = input.to(device).float() / 255.0
             target = target.to(device)
             
-            # Get targets FIRST (assuming target has shape [batch, 2, H, W])
-            da_target = target[:, 0, :, :]
-            ll_target = target[:, 1, :, :]
-            
             # Forward pass
             da_predict, ll_predict = model(input)
             
-            # Process predictions
+            # Process predictions - argmax over class dimension
             da_predict = torch.argmax(da_predict, dim=1)
             ll_predict = torch.argmax(ll_predict, dim=1)
-
-            # Add to metrics - convert to int64
-            da_segment_results.addBatch(da_predict.cpu().numpy().astype(np.int64), da_target.cpu().numpy().astype(np.int64))
-            ll_segment_results.addBatch(ll_predict.cpu().numpy().astype(np.int64), ll_target.cpu().numpy().astype(np.int64))
+            
+            # Extract targets from 4-channel tensor [batch, 4, H, W]
+            # Channels 0-1: drivable area (background, foreground)
+            # Channels 2-3: lane lines (background, foreground)
+            # Take argmax to get class labels (0 or 1)
+            da_target = torch.argmax(target[:, 0:2, :, :], dim=1)
+            ll_target = torch.argmax(target[:, 2:4, :, :], dim=1)
+            
+            # Update metrics
+            da_segment_results.addBatch(da_predict.cpu().numpy(), da_target.cpu().numpy())
+            ll_segment_results.addBatch(ll_predict.cpu().numpy(), ll_target.cpu().numpy())
             
             # Clear cache periodically
             if i % 50 == 0:
