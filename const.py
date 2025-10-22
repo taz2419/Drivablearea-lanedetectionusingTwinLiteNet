@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from DataSet import myImageFloder
+from DataSet import MyDataset
 
 # Dataset paths
 DATASET_DIR = './data/bdd100k'
