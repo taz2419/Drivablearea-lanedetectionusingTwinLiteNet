@@ -4,6 +4,7 @@ from argparse import ArgumentParser
 from utils import val, netParams
 from const import *
 import DataSet as myDataLoader  
+from collections import OrderedDict
 
 
 def validation(args):
@@ -28,10 +29,24 @@ def validation(args):
     if args.weight:
         print(f"Loading weights from {args.weight}")
         checkpoint = torch.load(args.weight, map_location=device)
+         # Handle different checkpoint formats
         if isinstance(checkpoint, dict) and 'state_dict' in checkpoint:
-            model.load_state_dict(checkpoint['state_dict'])
+            state_dict = checkpoint['state_dict']
         else:
-            model.load_state_dict(checkpoint)
+            state_dict = checkpoint
+        
+        # Remove 'module.' prefix from DataParallel checkpoints
+        new_state_dict = OrderedDict()
+        for k, v in state_dict.items():
+            if k.startswith('module.'):
+                name = k[7:]  # remove 'module.' prefix (7 characters)
+            else:
+                name = k
+            new_state_dict[name] = v
+        
+        # Load the cleaned state dict
+        model.load_state_dict(new_state_dict)
+        print(f"✓ Successfully loaded weights")
     
     print(f"Total parameters: {netParams(model):,}")
     
@@ -66,6 +81,7 @@ def validation(args):
     print("="*50)
 
 
+
 if __name__ == '__main__':
     parser = ArgumentParser()
     parser.add_argument('--weight', type=str, default='', help='Path to pretrained weights')
@@ -74,5 +90,3 @@ if __name__ == '__main__':
     
     args = parser.parse_args()
     validation(args)
-
-
