@@ -107,44 +107,50 @@ def train16fp(args, train_loader, model, criterion, optimizer, epoch,scaler):
 
 
 import torch
+from tqdm import tqdm
+import numpy as np
+from IOUEval import SegmentationMetric
 
-@torch.no_grad()
-def val(val_loader, model, device=None):
-    device = device or next(model.parameters()).device
+def val(valLoader, model, device):
+    '''
+    Validation function
+    :param valLoader: validation data loader
+    :param model: model to validate
+    :param device: device to run validation on
+    :return: validation metrics
+    '''
     model.eval()
-    DA = SegmentationMetric(2)
-    LL = SegmentationMetric(2)
-    da_acc_seg = AverageMeter(); da_IoU_seg = AverageMeter(); da_mIoU_seg = AverageMeter()
-    ll_acc_seg = AverageMeter(); ll_IoU_seg = AverageMeter(); ll_mIoU_seg = AverageMeter()
+    da_segment_results = SegmentationMetric(2)
+    ll_segment_results = SegmentationMetric(2)
+    
+    with torch.no_grad():
+        for i, (input, target, _) in enumerate(tqdm(valLoader)):
+            input = input.to(device)
+            target = target.to(device)
+            
+            da_predict, ll_predict = model(input)
+            
+            # Process predictions
+            da_predict = torch.argmax(da_predict, dim=1)
+            ll_predict = torch.argmax(ll_predict, dim=1)
+            
+            # Get targets
+            da_target = target[:, 0, :, :]
+            ll_target = target[:, 1, :, :]
+            
+            # Update metrics
+            da_segment_results.addBatch(da_predict.cpu().numpy(), da_target.cpu().numpy())
+            ll_segment_results.addBatch(ll_predict.cpu().numpy(), ll_target.cpu().numpy())
+            
+            # Clear cache periodically
+            if i % 50 == 0:
+                torch.cuda.empty_cache()
+    
+    return da_segment_results, ll_segment_results
 
-    pbar = tqdm(enumerate(val_loader), total=len(val_loader))
-    for i, (_, input, target) in pbar:
-        input = input.to(device, non_blocking=(device.type == 'cuda')).float() / 255.0
-        seg_da, seg_ll = target
-        seg_da = seg_da.to(device, non_blocking=(device.type == 'cuda')).float()
-        seg_ll = seg_ll.to(device, non_blocking=(device.type == 'cuda')).float()
-
-        out_da, out_ll = model(input)
-        _, da_predict = torch.max(out_da, 1); _, da_gt = torch.max(seg_da, 1)
-        DA.reset(); DA.addBatch(da_predict.cpu(), da_gt.cpu())
-        da_acc_seg.update(DA.pixelAccuracy(), input.size(0))
-        da_IoU_seg.update(DA.IntersectionOverUnion(), input.size(0))
-        da_mIoU_seg.update(DA.meanIntersectionOverUnion(), input.size(0))
-
-        _, ll_predict = torch.max(out_ll, 1); _, ll_gt = torch.max(seg_ll, 1)
-        LL.reset(); LL.addBatch(ll_predict.cpu(), ll_gt.cpu())
-        ll_acc_seg.update(LL.lineAccuracy(), input.size(0))
-        ll_IoU_seg.update(LL.IntersectionOverUnion(), input.size(0))
-        ll_mIoU_seg.update(LL.meanIntersectionOverUnion(), input.size(0))
-
-    return (da_acc_seg.avg, da_IoU_seg.avg, da_mIoU_seg.avg), (ll_acc_seg.avg, ll_IoU_seg.avg, ll_mIoU_seg.avg)
-
-
-
-
-
-def save_checkpoint(state, filenameCheckpoint='checkpoint.pth.tar'):
-    torch.save(state, filenameCheckpoint)
 
 def netParams(model):
-    return np.sum([np.prod(parameter.size()) for parameter in model.parameters()])
+    '''
+    Calculate total parameters in model
+    '''
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)

@@ -7,7 +7,10 @@ from model import TwinLite as net
 
 def main():
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = net.TwinLiteNet().to(device)
+    print(f"Using device: {device}")
+    
+    model = net.TwinLiteNet()
+    model = model.to(device)
 
     # AMP for GPU
     scaler = torch.cuda.amp.GradScaler(enabled=(device.type == 'cuda'))

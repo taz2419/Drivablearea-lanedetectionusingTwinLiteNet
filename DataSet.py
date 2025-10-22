@@ -74,14 +74,6 @@ class MyDataset(torch.utils.data.Dataset):
         base = data_root or os.environ.get('BDD100K_ROOT', '/data/bdd100k')
         split = 'val' if valid else 'train'
 
-        # Check if only 'val' exists (validation-only dataset)
-        val_path = os.path.join(base, 'images', 'val')
-        train_path = os.path.join(base, 'images', 'train')
-        
-        if not valid and not os.path.isdir(train_path) and os.path.isdir(val_path):
-            # Training mode but only val exists - use val for both
-            split = 'val'
-            print(f"Warning: 'train' split not found, using 'val' split for training")
 
         self.img_root = os.path.join(base, 'images', split)
         self.seg_root = os.path.join(base, 'segments', split)
