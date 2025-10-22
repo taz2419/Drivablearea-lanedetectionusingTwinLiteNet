@@ -101,64 +101,64 @@ class MyDataset(torch.utils.data.Dataset):
         return len(self.names)
 
     def __getitem__(self, idx):
-    W_, H_ = 640, 360
-    name = self.names[idx]
+        W_, H_ = 640, 360
+        name = self.names[idx]
 
-    image_path = os.path.join(self.img_root, name)
-    seg_path = os.path.join(self.seg_root, name.replace('.jpg', '.png'))
-    lane_path = os.path.join(self.lane_root, name.replace('.jpg', '.png'))
+        image_path = os.path.join(self.img_root, name)
+        seg_path = os.path.join(self.seg_root, name.replace('.jpg', '.png'))
+        lane_path = os.path.join(self.lane_root, name.replace('.jpg', '.png'))
 
-    image = cv2.imread(image_path)
-    label1 = cv2.imread(seg_path, 0)
-    label2 = cv2.imread(lane_path, 0)
+        image = cv2.imread(image_path)
+        label1 = cv2.imread(seg_path, 0)
+        label2 = cv2.imread(lane_path, 0)
 
-    if image is None or label1 is None or label2 is None:
-        missing = []
-        if image is None: missing.append(image_path)
-        if label1 is None: missing.append(seg_path)
-        if label2 is None: missing.append(lane_path)
-        raise FileNotFoundError(f"Missing or unreadable file(s): {missing}")
+        if image is None or label1 is None or label2 is None:
+            missing = []
+            if image is None: missing.append(image_path)
+            if label1 is None: missing.append(seg_path)
+            if label2 is None: missing.append(lane_path)
+            raise FileNotFoundError(f"Missing or unreadable file(s): {missing}")
 
-    # Apply augmentations only during training
-    if not self.valid:
-        if random.random() < 0.5:
-            (image, label1, label2) = random_perspective(
-                combination=(image, label1, label2),
-                degrees=10, translate=0.1, scale=0.25, shear=0.0
-            )
-        if random.random() < 0.5:
-            augment_hsv(image)
-        if random.random() < 0.5:
-            image = np.fliplr(image).copy()
-            label1 = np.fliplr(label1).copy()
-            label2 = np.fliplr(label2).copy()
+        # Apply augmentations only during training
+        if not self.valid:
+            if random.random() < 0.5:
+                (image, label1, label2) = random_perspective(
+                    combination=(image, label1, label2),
+                    degrees=10, translate=0.1, scale=0.25, shear=0.0
+                )
+            if random.random() < 0.5:
+                augment_hsv(image)
+            if random.random() < 0.5:
+                image = np.fliplr(image).copy()
+                label1 = np.fliplr(label1).copy()
+                label2 = np.fliplr(label2).copy()
 
-    # Resize to target dimensions
-    label1 = cv2.resize(label1, (W_, H_))
-    label2 = cv2.resize(label2, (W_, H_))
-    image = cv2.resize(image, (W_, H_))
+        # Resize to target dimensions
+        label1 = cv2.resize(label1, (W_, H_))
+        label2 = cv2.resize(label2, (W_, H_))
+        image = cv2.resize(image, (W_, H_))
 
-    # Create binary masks for drivable area and lane
-    _, seg_b1 = cv2.threshold(label1, 1, 255, cv2.THRESH_BINARY_INV)
-    _, seg_b2 = cv2.threshold(label2, 1, 255, cv2.THRESH_BINARY_INV)
-    _, seg1 = cv2.threshold(label1, 1, 255, cv2.THRESH_BINARY)
-    _, seg2 = cv2.threshold(label2, 1, 255, cv2.THRESH_BINARY)
+        # Create binary masks for drivable area and lane
+        _, seg_b1 = cv2.threshold(label1, 1, 255, cv2.THRESH_BINARY_INV)
+        _, seg_b2 = cv2.threshold(label2, 1, 255, cv2.THRESH_BINARY_INV)
+        _, seg1 = cv2.threshold(label1, 1, 255, cv2.THRESH_BINARY)
+        _, seg2 = cv2.threshold(label2, 1, 255, cv2.THRESH_BINARY)
 
-    seg1 = self.Tensor(seg1)
-    seg2 = self.Tensor(seg2)
-    seg_b1 = self.Tensor(seg_b1)
-    seg_b2 = self.Tensor(seg_b2)
+        seg1 = self.Tensor(seg1)
+        seg2 = self.Tensor(seg2)
+        seg_b1 = self.Tensor(seg_b1)
+        seg_b2 = self.Tensor(seg_b2)
 
-    seg_da = torch.stack((seg_b1[0], seg1[0]), 0)  # [2, H, W]
-    seg_ll = torch.stack((seg_b2[0], seg2[0]), 0)  # [2, H, W]
+        seg_da = torch.stack((seg_b1[0], seg1[0]), 0)  # [2, H, W]
+        seg_ll = torch.stack((seg_b2[0], seg2[0]), 0)  # [2, H, W]
 
-    # Convert BGR to RGB and HWC to CHW
-    image = image[:, :, ::-1].transpose(2, 0, 1)
-    image = np.ascontiguousarray(image)
+        # Convert BGR to RGB and HWC to CHW
+        image = image[:, :, ::-1].transpose(2, 0, 1)
+        image = np.ascontiguousarray(image)
 
-    # CHANGED: Concatenate targets into single tensor instead of tuple
-    target = torch.cat([seg_da, seg_ll], dim=0)  # [4, H, W]
-    return image_path, torch.from_numpy(image), target
+        # CHANGED: Concatenate targets into single tensor instead of tuple
+        target = torch.cat([seg_da, seg_ll], dim=0)  # [4, H, W]
+        return image_path, torch.from_numpy(image), target
 
 
 
