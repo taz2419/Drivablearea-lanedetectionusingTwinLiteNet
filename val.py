@@ -1,7 +1,7 @@
 import torch
 from model import TwinLite as net
 from argparse import ArgumentParser
-from utils import val, netParams
+from utils import val, netParams, custom_collate_fn
 from const import *
 import DataSet as myDataLoader  
 from collections import OrderedDict
