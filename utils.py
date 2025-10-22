@@ -124,17 +124,19 @@ def val(valLoader, model, device):
     ll_segment_results = SegmentationMetric(2)
     
     with torch.no_grad():
-        for i, (input, target, _) in enumerate(tqdm(valLoader)):
-            input = input.to(device)
+        for i, (_, input, target) in enumerate(tqdm(valLoader)):
+            # Normalize input to [0, 1] range
+            input = input.to(device).float() / 255.0
             target = target.to(device)
             
+            # Forward pass
             da_predict, ll_predict = model(input)
             
             # Process predictions
             da_predict = torch.argmax(da_predict, dim=1)
             ll_predict = torch.argmax(ll_predict, dim=1)
             
-            # Get targets
+            # Get targets (assuming target has shape [batch, 2, H, W])
             da_target = target[:, 0, :, :]
             ll_target = target[:, 1, :, :]
             
