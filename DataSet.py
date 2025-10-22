@@ -71,7 +71,7 @@ class MyDataset(torch.utils.data.Dataset):
         self.valid = valid
 
         # Resolve dataset root: CLI arg > ENV > default
-        base = data_root or os.environ.get('BDD100K_ROOT', '/kaggle/input/bdd100k_validation_only')
+        base = data_root or os.environ.get('BDD100K_ROOT', '/data/bdd100k')
         split = 'val' if valid else 'train'
 
         # Check if only 'val' exists (validation-only dataset)
