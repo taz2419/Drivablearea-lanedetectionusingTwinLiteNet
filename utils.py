@@ -8,6 +8,23 @@ import os
 import torch.nn as nn
 from const import *
 
+def custom_collate_fn(batch):
+    """
+    Custom collate function to handle batch data
+    Args:
+        batch: list of tuples from Dataset.__getitem__
+    Returns:
+        batched data as tensors
+    """
+    # Unzip the batch
+    paths, images, targets = zip(*batch)
+    
+    # Stack images and targets into tensors
+    images = torch.stack(images, 0)
+    targets = torch.stack(targets, 0)
+    
+    return paths, images, targets
+
 
 LOGGING_NAME="custom"
 def set_logging(name=LOGGING_NAME, verbose=True):
