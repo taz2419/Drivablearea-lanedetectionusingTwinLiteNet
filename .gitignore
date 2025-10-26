@@ -54,7 +54,6 @@ coverage.xml
 data/
 bdd100k/
 dataset/
-datasets/
 *.zip
 *.tar
 *.tar.gz
