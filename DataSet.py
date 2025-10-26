@@ -71,7 +71,10 @@ class MyDataset(torch.utils.data.Dataset):
         self.valid = valid
 
         # Resolve dataset root: CLI arg > ENV > default
-        base = data_root or os.environ.get('BDD100K_ROOT', '/data/bdd100k')
+        BDD_ROOT_DEFAULT = "data/bdd100k"  # or current default
+        BDD_ROOT = os.getenv("BDD100K_ROOT", BDD_ROOT_DEFAULT)
+
+        base = data_root or BDD_ROOT
         split = 'val' if valid else 'train'
 
 
