@@ -7,13 +7,6 @@ from typing import Tuple
 from IOUEval import SegmentationMetric
 
 def custom_collate_fn(batch):
-    """
-    Custom collate function to handle batch data
-    Args:
-        batch: list of tuples from Dataset.__getitem__
-    Returns:
-        batched data as tensors
-    """
     batch = [b for b in batch if b is not None]
     if not batch:
         return None
@@ -24,14 +17,11 @@ def set_logging(name=LOGGING_NAME, verbose=True):
     level = logging.INFO if verbose else logging.WARNING
     logging.basicConfig(level=level, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 
-set_logging(LOGGING_NAME)  # run before defining LOGGER
+set_logging(LOGGING_NAME)
 LOGGER = logging.getLogger(LOGGING_NAME)
 
 def netParams(model) -> int:
-    '''
-    Calculate total parameters in model
-    '''
-    return sum(p.numel() for p in model.parameters() if p.requires_grad)
+    return sum(p.numel() for p in model.parameters())
 
 def _unpack_batch(batch) -> Tuple[torch.Tensor, torch.Tensor]:
     if isinstance(batch, (list, tuple)):
@@ -41,17 +31,10 @@ def _unpack_batch(batch) -> Tuple[torch.Tensor, torch.Tensor]:
         if len(batch) == 2:
             img, target = batch
             return img, target
-    raise RuntimeError("Unexpected batch structure; expected (name,img,target) or (img,target).")
+    raise RuntimeError("Unexpected batch structure.")
 
 @torch.no_grad()
 def val(val_loader, model, device, num_classes_da=2, num_classes_ll=2):
-    '''
-    Validation function
-    :param valLoader: validation data loader
-    :param model: model to validate
-    :param device: device to run validation on
-    :return: validation metrics
-    '''
     model.eval()
     da_metric = SegmentationMetric(num_classes_da)
     ll_metric = SegmentationMetric(num_classes_ll)
