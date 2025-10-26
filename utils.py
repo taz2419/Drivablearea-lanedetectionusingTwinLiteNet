@@ -34,10 +34,10 @@ def _unpack_batch(batch) -> Tuple[torch.Tensor, torch.Tensor]:
     raise RuntimeError("Unexpected batch structure.")
 
 @torch.no_grad()
-def val(val_loader, model, device, num_classes_da=2, num_classes_ll=2):
+def val(val_loader, model, device, num_classes_da=2, num_classes_ll=2, compute_lane=True):
     model.eval()
     da_metric = SegmentationMetric(num_classes_da)
-    ll_metric = SegmentationMetric(num_classes_ll)
+    ll_metric = SegmentationMetric(num_classes_ll) if compute_lane else None
 
     for batch in tqdm(val_loader, desc="Validating", leave=False):
         if batch is None:
@@ -47,14 +47,17 @@ def val(val_loader, model, device, num_classes_da=2, num_classes_ll=2):
         img = img.to(device).float() / 255.0
         target = target.to(device).long()
         da_target = target[:, 0]
-        ll_target = target[:, 1]
-
+        
         da_logits, ll_logits = model(img)
         da_pred = torch.argmax(da_logits, dim=1)
-        ll_pred = torch.argmax(ll_logits, dim=1)
 
         da_metric.addBatch(da_pred.cpu().numpy().astype(np.int64),
                            da_target.cpu().numpy().astype(np.int64))
-        ll_metric.addBatch(ll_pred.cpu().numpy().astype(np.int64),
-                           ll_target.cpu().numpy().astype(np.int64))
+        
+        if compute_lane:
+            ll_target = target[:, 1]
+            ll_pred = torch.argmax(ll_logits, dim=1)
+            ll_metric.addBatch(ll_pred.cpu().numpy().astype(np.int64),
+                               ll_target.cpu().numpy().astype(np.int64))
+    
     return da_metric, ll_metric

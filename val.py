@@ -119,12 +119,33 @@ def main(args: Namespace):
         LOGGER.warning(f"Weights not found: {args.weights}")
 
     val_loader = build_loader(args)
+    
+    # Check if we should compute lane metrics
+    compute_lane = len(args.ll_ids) > 0
+    
     da_metric, ll_metric = run_val(
         val_loader, model, device,
-        num_classes_da=args.da_classes, num_classes_ll=args.ll_classes
+        num_classes_da=args.da_classes, 
+        num_classes_ll=args.ll_classes,
+        compute_lane=compute_lane
     )
-    print(f"DA  - mIoU: {da_metric.meanIntersectionOverUnion():.4f}, Acc: {da_metric.pixelAccuracy():.4f}")
-    print(f"Lane- mIoU: {ll_metric.meanIntersectionOverUnion():.4f}, Acc: {ll_metric.pixelAccuracy():.4f}")
+    
+    # Print results in BDD100K format
+    print("=" * 50)
+    print("Validation Results:")
+    print("=" * 50)
+    print()
+    print("Drivable Area Segmentation:")
+    print(f"  IoU: {da_metric.meanIntersectionOverUnion():.4f}")
+    print(f"  Pixel Accuracy: {da_metric.pixelAccuracy():.4f}")
+    print()
+    
+    if compute_lane:
+        print("Lane Line Segmentation:")
+        print(f"  IoU: {ll_metric.meanIntersectionOverUnion():.4f}")
+        print(f"  Pixel Accuracy: {ll_metric.pixelAccuracy():.4f}")
+    else:
+        LOGGER.info("Lane line metrics skipped (no LL class IDs provided)")
 
 if __name__ == "__main__":
     if _is_kaggle():
