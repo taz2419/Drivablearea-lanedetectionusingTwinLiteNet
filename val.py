@@ -4,7 +4,7 @@ import glob
 import torch
 from torch.utils.data import DataLoader
 
-from model.TwinLite import TwinLite as Net
+from model import TwinLite as net
 from utils import val as run_val, custom_collate_fn, netParams, LOGGER
 import DataSet as BDD
 from datasets.custom_dataset import CustomTwinLiteDataset
