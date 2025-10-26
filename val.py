@@ -9,13 +9,20 @@ from datasets.custom_dataset import CustomTwinLiteDataset
 
 def _load_model_class():
     m = importlib.import_module("model.TwinLite")
+    # Try common names first
     for name in ("TwinLite", "TwinLiteNet", "Net", "Model"):
-        if hasattr(m, name) and inspect.isclass(getattr(m, name)) and issubclass(getattr(m, name), nn.Module):
-            return getattr(m, name)
+        if hasattr(m, name):
+            cls = getattr(m, name)
+            if inspect.isclass(cls) and issubclass(cls, nn.Module):
+                return cls
+    # Fallback: first nn.Module subclass defined in this module
     for name, obj in inspect.getmembers(m, inspect.isclass):
         if issubclass(obj, nn.Module) and obj.__module__ == m.__name__:
             return obj
-    raise ImportError("No nn.Module subclass found in model/TwinLite.py")
+    raise ImportError(
+        f"No nn.Module subclass exported by model/TwinLite.py. "
+        f"Found classes: {[n for n, _ in inspect.getmembers(m, inspect.isclass)]}"
+    )
 Net = _load_model_class()
 
 def load_weights(model: torch.nn.Module, weights_path: str, device: torch.device):
@@ -126,7 +133,7 @@ if __name__ == "__main__":
         p = ArgumentParser()
         p.add_argument("--custom_root", type=str, default="data/cityscapes_val")
         p.add_argument("--split", type=str, default="val")
-        p.add_argument("--weights", type=str, default="pretrained/best.pth")
+        p.add_argument("--weights", "--weight", dest="weights", type=str, default="pretrained/best.pth")
         p.add_argument("--batch_size", type=int, default=8)
         p.add_argument("--num_workers", type=int, default=2)
         p.add_argument("--cpu", action="store_true")
